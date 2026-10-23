@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Egern 代理批量在线检测</title>
+  <style>
+    body { font-family: system-ui, sans-serif; padding: 20px; max-width: 600px; margin: auto; }
+    textarea { width: 100%; height: 140px; border-radius: 6px; padding: 8px; box-sizing: border-box; }
+    button { background: #007aff; color: #fff; border: none; padding: 9px 18px; border-radius: 6px; cursor: pointer; margin-top: 10px; font-size: 15px; }
+    .item { margin-top: 10px; padding: 10px; background: #f2f4f7; border-radius: 6px; display: flex; justify-content: space-between; }
+    .ok { color: #16a34a; font-weight: bold; }
+    .fail { color: #dc2626; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h3>Egern 代理批量在线检测</h3>
+  <textarea id="links" placeholder="一行一条，粘贴你的 Egern 代理链接..."></textarea><br>
+  <button onclick="startTest()">开始检测</button>
+  <div id="results"></div>
+
+  <script>
+    // 你的云端 API 地址
+    const API_URL = 'https://hy2-proxy-checker.onrender.com/test';
+
+    async function startTest() {
+      const text = document.getElementById('links').value;
+      const lines = text.split('\n').filter(l => l.trim().length > 0);
+      const resDiv = document.getElementById('results');
+      resDiv.innerHTML = '';
+
+      for (let url of lines) {
+        try {
+          const u = new URL(url);
+          const jsonStr = u.searchParams.get('json');
+          const data = JSON.parse(jsonStr).hysteria2;
+          const nodeName = data.name || data.server;
+
+          const item = document.createElement('div');
+          item.className = 'item';
+          item.innerHTML = `<span>${nodeName}</span><span>检测中...</span>`;
+          resDiv.appendChild(item);
+
+          const resp = await fetch(API_URL, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+              server: data.server,
+              port: data.port,
+              auth: data.auth,
+              sni: data.sni || 'bing.com',
+              skip_tls_verify: data.skip_tls_verify !== false
+            })
+          });
+          const res = await resp.json();
+
+          if (res.online) {
+            item.innerHTML = `<span>${nodeName}</span><span class="ok">正常 (${res.latency} ms)</span>`;
+          } else {
+            item.innerHTML = `<span>${nodeName}</span><span class="fail">不可用</span>`;
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    }
+  </script>
+</body>
+</html>
